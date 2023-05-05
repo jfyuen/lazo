@@ -13,6 +13,7 @@ plugins {
 }
 
 version = '0.1.0'
+group = 'lazo'
 
 dependencies {
     implementation 'com.google.guava:guava:23.0'
