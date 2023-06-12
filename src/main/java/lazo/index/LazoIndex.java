@@ -41,27 +41,18 @@ public class LazoIndex {
     private float IP = 0.001f;
 
     public LazoIndex() {
-	this.k = 64;
-	this.d = 0.05f; // default for 20 indexes
-	this.fp_rate = 0.5f;
-	this.fn_rate = 0.5f;
-
-	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate);
+	this(64);
     }
 
     public LazoIndex(int k) {
-	if (k <= 0) {
-	    throw new IllegalArgumentException("The number of permutations must be positive (> 0)");
-	}
-	this.k = k;
-	this.d = 0.05f; // default for 20 indexes
-	this.fp_rate = 0.5f;
-	this.fn_rate = 0.5f;
-
-	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate);
+	this(k, 0.05f);
     }
 
     public LazoIndex(int k, float d) {
+	this(k, d, 0.5f, 0.5f);
+    }
+
+    public LazoIndex(int k, float d, float fp_rate, float fn_rate) {
 	if (d < 0 || d > 0.5) {
 	    throw new IllegalArgumentException(
 		    "Threshold for d must be in the range [0,0.5], recommended:" + "0.05 or 0.1");
@@ -71,8 +62,8 @@ public class LazoIndex {
 	}
 	this.k = k;
 	this.d = d;
-	this.fp_rate = 0.5f;
-	this.fn_rate = 0.5f;
+	this.fp_rate = fp_rate;
+	this.fn_rate = fn_rate;
 
 	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate);
     }
@@ -214,7 +205,7 @@ public class LazoIndex {
 	}
 	return true;
     }
-    
+
     // To remove existing data from the index, the segments are saved
     //   when inserting data. There is a tradeoff between the default
     //   storage needed to keep the segments vs. keeping just the hash
@@ -241,7 +232,7 @@ public class LazoIndex {
         }
         return true;
     }
-    
+
     public boolean update(Object key, LazoSketch sketch) {
         this.remove(key);
         return this.insert(key, sketch);
