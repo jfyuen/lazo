@@ -67,40 +67,57 @@ public class LazoIndex {
 	this.fn_rate = fn_rate;
 	this.supportsDeletion = supportsDeletion;
 
-	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate);
+	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate, null);
     }
 
-    private void initIndex(int k, float d, float fp_rate, float fn_rate) {
+	public LazoIndex(LazoIndex index) {
+		this.k = index.k;
+		this.d = index.d;
+		this.fp_rate = index.fp_rate;
+		this.fn_rate = index.fn_rate;
+		this.supportsDeletion = index.supportsDeletion;
+
+		this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate, index);
+	}
+
+    private void initIndex(int k, float d, float fp_rate, float fn_rate, LazoIndex index) {
 	this.keyCardinality = new HashMap<>();
 
 	this.numThresholds = (int) (1 / d);
 
 	Set<Integer> rowCombinations = new HashSet<>();
 
-	// associate threshold to b,r combination and keep rows to compute
-	// bin-options
-	for (int i = 0; i < this.numThresholds; i++) {
-		float threshold = d * i;
-		Integer[] bandsAndRows = this.computeOptimalParameters(threshold, k, fp_rate, fn_rate);
-		this.thresholdToBandsRows.put(i, bandsAndRows);
-		int rows = bandsAndRows[1];
-		rowCombinations.add(rows);
-	}
-	// compute bin-options
-	int gcdSliceSize = findGCDOf(rowCombinations.toArray(new Integer[rowCombinations.size()]));
-	int gcdBands = this.k / gcdSliceSize;
-	this.gcdSliceSize = gcdSliceSize;
-	this.gcdBands = gcdBands;
-
-	this.hashRanges = new int[gcdBands];
-	this.segmentIds = new ArrayList<>();
-	// hash ranges
-	for (int i = 0; i < hashRanges.length; i++) {
-		hashRanges[i] = i * gcdSliceSize;
-		if (supportsDeletion) {
-			Map<Object, Set<Long>> l = new HashMap<>();
-			segmentIds.add(l);
+	if (index == null) {
+		// associate threshold to b,r combination and keep rows to compute
+		// bin-options
+		for (int i = 0; i < this.numThresholds; i++) {
+			float threshold = d * i;
+			Integer[] bandsAndRows = this.computeOptimalParameters(threshold, k, fp_rate, fn_rate);
+			this.thresholdToBandsRows.put(i, bandsAndRows);
+			int rows = bandsAndRows[1];
+			rowCombinations.add(rows);
 		}
+		// compute bin-options
+		int gcdSliceSize = findGCDOf(rowCombinations.toArray(new Integer[rowCombinations.size()]));
+		int gcdBands = this.k / gcdSliceSize;
+		this.gcdSliceSize = gcdSliceSize;
+		this.gcdBands = gcdBands;
+
+		this.hashRanges = new int[gcdBands];
+		this.segmentIds = new ArrayList<>();
+		// hash ranges
+		for (int i = 0; i < hashRanges.length; i++) {
+			hashRanges[i] = i * gcdSliceSize;
+			if (supportsDeletion) {
+				Map<Object, Set<Long>> l = new HashMap<>();
+				segmentIds.add(l);
+			}
+		}
+	} else {
+		this.thresholdToBandsRows = index.thresholdToBandsRows;
+		this.gcdSliceSize = index.gcdSliceSize;
+		this.gcdBands = index.gcdBands;
+		this.hashRanges = index.hashRanges;
 	}
 
 	this.hashTables = new ArrayList<>();
