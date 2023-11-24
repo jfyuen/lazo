@@ -21,16 +21,17 @@ public class LazoIndex {
     public int jcx_impactful_corrections;
     public float magnitude_correction;
 
-    private int k;
-    private float d;
-    private float fp_rate;
-    private float fn_rate;
-    private int numThresholds;
+	private final int k;
+	private final float d;
+	private final float fp_rate;
+	private final float fn_rate;
+	private int numThresholds;
 
     private int gcdSliceSize;
     private int gcdBands;
     private List<Map<Long, Set<Object>>> hashTables;
     private List<Map<Object, Set<Long>>> segmentIds;
+	private final boolean supportsDeletion;
     private int[] hashRanges;
     private Map<Object, Long> keyCardinality;
 
@@ -38,7 +39,7 @@ public class LazoIndex {
     private Map<Integer, Integer[]> thresholdToBandsRows = new HashMap<>();
 
     // integration precision
-    private float IP = 0.001f;
+    private final float IP = 0.001f;
 
     public LazoIndex() {
 	this(64);
@@ -49,10 +50,10 @@ public class LazoIndex {
     }
 
     public LazoIndex(int k, float d) {
-	this(k, d, 0.5f, 0.5f);
+	this(k, d, 0.5f, 0.5f, true);
     }
 
-    public LazoIndex(int k, float d, float fp_rate, float fn_rate) {
+    public LazoIndex(int k, float d, float fp_rate, float fn_rate, boolean supportsDeletion) {
 	if (d < 0 || d > 0.5) {
 	    throw new IllegalArgumentException(
 		    "Threshold for d must be in the range [0,0.5], recommended:" + "0.05 or 0.1");
@@ -64,6 +65,7 @@ public class LazoIndex {
 	this.d = d;
 	this.fp_rate = fp_rate;
 	this.fn_rate = fn_rate;
+	this.supportsDeletion = supportsDeletion;
 
 	this.initIndex(this.k, this.d, this.fp_rate, this.fn_rate);
     }
@@ -78,32 +80,36 @@ public class LazoIndex {
 	// associate threshold to b,r combination and keep rows to compute
 	// bin-options
 	for (int i = 0; i < this.numThresholds; i++) {
-	    float threshold = d * i;
-	    Integer[] bandsAndRows = this.computeOptimalParameters(threshold, k, fp_rate, fn_rate);
-	    this.thresholdToBandsRows.put(i, bandsAndRows);
-	    int rows = bandsAndRows[1];
-	    rowCombinations.add(rows);
+		float threshold = d * i;
+		Integer[] bandsAndRows = this.computeOptimalParameters(threshold, k, fp_rate, fn_rate);
+		this.thresholdToBandsRows.put(i, bandsAndRows);
+		int rows = bandsAndRows[1];
+		rowCombinations.add(rows);
 	}
 	// compute bin-options
 	int gcdSliceSize = findGCDOf(rowCombinations.toArray(new Integer[rowCombinations.size()]));
 	int gcdBands = this.k / gcdSliceSize;
 	this.gcdSliceSize = gcdSliceSize;
 	this.gcdBands = gcdBands;
-	this.hashTables = new ArrayList<>();
-	this.segmentIds = new ArrayList<>();
+
 	this.hashRanges = new int[gcdBands];
-	// hash tables
-	for (int i = 0; i < gcdBands; i++) {
-	    Map<Long, Set<Object>> mp = new HashMap<>();
-	    hashTables.add(mp);
-	    Map<Object, Set<Long>> l = new HashMap<>();
-	    segmentIds.add(l);
-	}
+	this.segmentIds = new ArrayList<>();
 	// hash ranges
 	for (int i = 0; i < hashRanges.length; i++) {
-	    hashRanges[i] = i * gcdSliceSize;
+		hashRanges[i] = i * gcdSliceSize;
+		if (supportsDeletion) {
+			Map<Object, Set<Long>> l = new HashMap<>();
+			segmentIds.add(l);
+		}
 	}
 
+	this.hashTables = new ArrayList<>();
+
+	// hash tables
+	for (int i = 0; i < gcdBands; i++) {
+		Map<Long, Set<Object>> mp = new HashMap<>();
+		hashTables.add(mp);
+	}
     }
 
     public int __getNumHashTables() {
@@ -195,13 +201,15 @@ public class LazoIndex {
 	    }
 	    hashTable.get(segId).add(key);
 
-	    // Storing segment information
-	    Map<Object, Set<Long>> segmentIdInfo = segmentIds.get(i);
-	    if (segmentIdInfo.get(key) == null) {
-	        Set<Long> l = new HashSet<>();
-	        segmentIdInfo.put(key, l);
-	    }
-	    segmentIdInfo.get(key).add(segId);
+		if (supportsDeletion) {
+			// Storing segment information
+			Map<Object, Set<Long>> segmentIdInfo = segmentIds.get(i);
+			if (segmentIdInfo.get(key) == null) {
+				Set<Long> l = new HashSet<>();
+				segmentIdInfo.put(key, l);
+			}
+			segmentIdInfo.get(key).add(segId);
+		}
 	}
 	return true;
     }
@@ -212,6 +220,10 @@ public class LazoIndex {
     //   values (reduce data structure burden) and do more work on removal.
     //   Depending on workloads one or the other would be better.
     public boolean remove(Object key) {
+		if (!supportsDeletion) {
+			throw new UnsupportedOperationException("LazoIndex was created without deletion support");
+		}
+
         if (keyCardinality.get(key) == null) {
             return false;
         }
@@ -238,7 +250,7 @@ public class LazoIndex {
         return this.insert(key, sketch);
     }
 
-    public class LazoCandidate {
+	public static class LazoCandidate {
 	public final Object key;
 	public final float js;
 	public final float jcx;
