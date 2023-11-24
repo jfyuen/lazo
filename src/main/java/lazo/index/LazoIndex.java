@@ -45,12 +45,24 @@ public class LazoIndex {
 	this(64);
     }
 
+	public LazoIndex(boolean supportsDeletion) {
+		this(64, supportsDeletion);
+	}
+
     public LazoIndex(int k) {
 	this(k, 0.05f);
     }
 
-    public LazoIndex(int k, float d) {
-	this(k, d, 0.5f, 0.5f, true);
+	public LazoIndex(int k, boolean supportsDeletion) {
+		this(k, 0.05f, supportsDeletion);
+	}
+
+	public LazoIndex(int k, float d) {
+		this(k, d, 0.5f, 0.5f, true);
+	}
+
+    public LazoIndex(int k, float d, boolean supportsDeletion) {
+		this(k, d, 0.5f, 0.5f, supportsDeletion);
     }
 
     public LazoIndex(int k, float d, float fp_rate, float fn_rate, boolean supportsDeletion) {
